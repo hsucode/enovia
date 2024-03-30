@@ -1,0 +1,625 @@
+<h1>3DEXPERIENCE R2024x windows server installation</h1>
+<h2>website</h2>
+<pre><code class="language-batch">start https://dsplm24x.jxjty.com/3dpassport
+start https://dsplm24x.jxjty.com/3ddashboard
+start http://dsplm24x.jxjty.com:19001
+start https://dsplm24x.jxjty.com/3dswym
+start https://dsplm24x.jxjty.com/3dspace
+start https://dsplm24x.jxjty.com/federated/search?query=test
+
+</code></pre>
+<h2>host</h2>
+<pre><code class="language-batch">
+echo 127.0.0.1 dsplm24x.jxjty.com&gt;&gt; C:\Windows\System32\drivers\etc\hosts
+echo 127.0.0.1 untrusted.dsplm24x.jxjty.com&gt;&gt; C:\Windows\System32\drivers\etc\hosts
+
+</code></pre>
+<h2>java</h2>
+<pre><code class="language-batch">setx /m Path &quot;%PATH%;%JAVA_HOME%\bin;%JAVA_HOME%\jre\bin;&quot;
+</code></pre>
+<h2>apps</h2>
+<ul>
+<li>7zip</li>
+<li>firefox</li>
+</ul>
+<h2>user data</h2>
+<ul>
+<li>
+<p>all password</p>
+<p>Qwer1234</p>
+</li>
+</ul>
+<h2>oracle</h2>
+<pre><code class="language-batch">
+unzip httpd-2.4.55-o111s-x64-vs17 -d C:\oracle\product\19c\db_home
+
+</code></pre>
+<pre><code class="language-batch">sqlplus &quot;/as sysdba&quot; 
+</code></pre>
+<pre><code class="language-batch">SELECT * FROM dba_profiles s WHERE s.profile='DEFAULT'AND resource_name='PASSWORD_LIFE_TIME';
+</code></pre>
+<pre><code class="language-batch">alter profile default limit password_life_time unlimited;
+</code></pre>
+<h3>start database</h3>
+<pre><code class="language-batch">net start OracleOraDB19Home1TNSListener
+net start OracleRemExecServiceV2
+net start OracleServiceENOVIAV6
+
+</code></pre>
+<pre><code class="language-batch">net stop OracleOraDB19Home1TNSListener
+net stop OracleRemExecServiceV2
+net stop OracleServiceENOVIAV6
+
+</code></pre>
+<h2>apache</h2>
+<pre><code class="language-batch">unzip httpd-2.4.55-o111s-x64-vs17 -d c:\
+</code></pre>
+<p>创建一个 dsplm24x_jxjty_com.ext 在ssl文件夹，内容如下，后期会用到</p>
+<pre><code class="language-conf">
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = dsplm24x.jxjty.com
+DNS.2 = dsplm24x.jxjty.com
+
+</code></pre>
+<p>逐步运行如下脚本</p>
+<pre><code class="language-batch">
+set PATH=C:\Apache24\bin;%JAVA_HOME%\bin;%PATH%
+
+openssl genrsa -des3 -out RootCA.key -passout pass:Qwer1234 2048
+
+openssl req -x509 -sha256 -new -nodes -key RootCA.key -days 3650 -out RootCA.crt -passin pass:Qwer1234 -subj &quot;/C=ZH/ST=BJ/L=BJ/O=DSCN/OU=CS/CN=RootCA&quot;
+
+openssl rsa -in RootCA.key -out dsplm24x_jxjty_com.key -passin pass:Qwer1234
+
+openssl req -new -key dsplm24x_jxjty_com.key -out dsplm24x_jxjty_com.csr -subj&quot;/C=ZH/ST=BJ/L=BJ/O=DSCN/OU=CS/CN=*.jxjty.com&quot;
+
+openssl x509 -sha256 -req -in dsplm24x_jxjty_com.csr -CA RootCA.crt -CAkey RootCA.key -CAcreateserial -out dsplm24x_jxjty_com.crt -days 3650 -passin pass:Qwer1234 -extfile dsplm24x_jxjty_com.ext
+
+openssl x509 -noout -text -in dsplm24x_jxjty_com.crt
+
+keytool -importcert -keystore &quot;%JAVA_HOME%\lib\security\cacerts&quot; -noprompt -storepass changeit -file RootCA.crt -alias RootCA
+
+
+keytool -list -keystore &quot;%JAVA_HOME%\lib\security\cacerts&quot; -storepass changeit -alias RootCA
+
+</code></pre>
+<h2>apache</h2>
+<p>v6r2024x_v1.conf</p>
+<pre><code class="language-conf">
+KeepAlive On
+KeepAliveTimeout 6
+MaxKeepAliveRequests 400
+#LoadModule cache_module modules/mod_cache.so
+
+&lt;IfModule mod_cache.c&gt;
+#LoadModule cache_disk_module modules/mod_cache_disk.so
+    &lt;IfModule mod_cache_disk.c&gt;
+    CacheRoot /opt/data/memory_vol
+    CacheEnable disk /
+    CacheDirLevels 5
+    CacheDirLength 2
+    &lt;/IfModule&gt;
+
+&lt;/IfModule&gt;
+
+#LoadModule deflate_module modules/mod_deflate.so
+AddOutputFilterByType DEFLATE text/plain
+AddOutputFilterByType DEFLATE text/xml
+AddOutputFilterByType DEFLATE text/html
+AddOutputFilterByType DEFLATE text/css
+AddOutputFilterByType DEFLATE application/xml
+AddOutputFilterByType DEFLATE application/x-javascript
+AddOutputFilterByType DEFLATE application/javascript
+#AddOutputFilterByType DEFLATE application/x-httpd-php
+AddOutputFilterByType DEFLATE application/json
+AddOutputFilterByType DEFLATE text/javascript
+AddOutputFilterByType DEFLATE application/xhtml+xml
+AddOutputFilterByType DEFLATE application/rss+xml
+AddOutputFilterByType DEFLATE application/atom_xml
+Listen 443
+
+&lt;VirtualHost *:443&gt;
+    ServerName dsplm24x.jxjty.com
+    ServerAlias dsplm24x.jxjty.com
+    SSLEngine on
+    SSLProxyEngine On
+    SSLCertificateFile conf/ssl/dsplm24x_jxjty_com.crt
+    SSLCertificateKeyFile conf/ssl/dsplm24x_jxjty_com.key
+    ProxyRequests Off
+    #Include conf/3DPassport_httpd_fragment.conf
+    #Include conf/3DDashboard_httpd_fragment.conf
+    #Include conf/mepreferences_httpd_fragment.conf
+    #Include conf/federated_httpd_fragment.conf
+    #Include conf/3DSpace_httpd_fragment.conf
+    #Include conf/fcs_httpd_fragment.conf
+    #Include conf/3DSwym_httpd_fragment.conf
+    #Include conf/3DNotification_httpd_fragment.conf
+    #Include conf/3DComment_httpd_fragment.conf
+&lt;/VirtualHost&gt;
+
+&lt;VirtualHost *:443&gt;
+    ServerName untrusted.dsplm24x.jxjty.com
+    ServerAlias untrusted.dsplm24x.jxjty.com
+    SSLEngine on
+    SSLProxyEngine On
+    SSLCertificateFile conf/ssl/dsplm24x_jxjty_com.crt
+    SSLCertificateKeyFile conf/ssl/dsplm24x_jxjty_com.key
+    ProxyRequests Off
+&lt;/VirtualHost&gt;
+
+</code></pre>
+<h2>tomee</h2>
+<table>
+<thead>
+<tr>
+<th>ServerName</th>
+<th>ShutdownPort</th>
+<th>HTTPPort</th>
+<th>RedirectPort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3dpassport</td>
+<td>8005</td>
+<td>8080</td>
+<td>8443</td>
+</tr>
+<tr>
+<td>3ddashboard</td>
+<td>8006</td>
+<td>8081</td>
+<td>8444</td>
+</tr>
+<tr>
+<td>3dsearch</td>
+<td>8007</td>
+<td>8082</td>
+<td>8445</td>
+</tr>
+<tr>
+<td>3dspace_CAS</td>
+<td>8008</td>
+<td>8083</td>
+<td>8446</td>
+</tr>
+<tr>
+<td>3dspace_NoCAS</td>
+<td>8009</td>
+<td>8070</td>
+<td>8456</td>
+</tr>
+<tr>
+<td>FCS</td>
+<td>9005</td>
+<td>8084</td>
+<td>8447</td>
+</tr>
+<tr>
+<td>3dswym</td>
+<td>9006</td>
+<td>8085</td>
+<td>8448</td>
+</tr>
+<tr>
+<td>3dcomment</td>
+<td>9007</td>
+<td>8086</td>
+<td>8449</td>
+</tr>
+<tr>
+<td>3dnotification</td>
+<td>8089</td>
+<td>8087</td>
+<td>8450</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-batch">
+md c:\tomee\3dpassport
+md c:\tomee\3ddashboard
+md c:\tomee\3dsearch
+md c:\tomee\3dspace_cas
+md c:\tomee\fcs
+md c:\tomee\3dswym
+md c:\tomee\3dcomment
+md c:\tomee\3dnotification
+
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dpassport
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3ddashboard
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dsearch
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dspace_cas
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\fcs
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dswym
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dcomment
+unzip.exe apache-tomee-9.1.2-plus.zip -d c:\tomee\3dnotification
+
+
+</code></pre>
+<h2>slient  installation</h2>
+<h2>UserIntentions</h2>
+<p>备份</p>
+<pre><code class="language-batch">md c:\UserIntentions\3dpassport\
+copy D:\DassaultSystemes\R2024x\3DPassport\InstallData\*UserIntentions*.xml c:\UserIntentions\3dpassport\
+
+md c:\UserIntentions\3ddashboard\
+copy D:\DassaultSystemes\R2024x\3DDashboard\InstallData\*UserIntentions*.xml c:\UserIntentions\3ddashboard\
+
+md c:\UserIntentions\3dspaceindex\
+copy D:\DassaultSystemes\R2024x\3DSpaceIndex\InstallData\*UserIntentions*.xml c:\UserIntentions\3dspaceindex\
+
+</code></pre>
+<pre><code class="language-batch">@echo off
+
+cd /d %~dp0
+::License
+@REM echo localhost:4085 &gt;&gt;C:\ProgramData\DassaultSystemes\Licenses\DSLicSrv.txt
+:GA
+echo 3DPassport
+AM_3DEXP_Platform.AllOS\1\3DPassport\Windows64\1\StartTUI.exe --silent InstallData\3DPassport\UserIntentions_CODE.xml
+echo 3DDashboard
+AM_3DEXP_Platform.AllOS\1\3DDashboard\Windows64\1\StartTUI.exe --silent InstallData\3DDashboard\UserIntentions_CODE.xml
+echo 3DSearch
+AM_3DEXP_Platform.AllOS\1\FederatedSearchFoundation\Windows64\1\StartTUI.exe --silent InstallData\FedSearch\UserIntentions_CODE.xml
+echo 3DSpaceIndex
+AM_3DEXP_Platform.AllOS\2\3DSpaceIndex\Windows64\1\StartTUI.exe --silent InstallData\3DSpaceIndex\UserIntentions_CODE.xml
+echo 3DSpace
+AM_3DEXP_Platform.AllOS\2\3DSpace\Windows64\1\StartTUI.exe --silent	InstallData\3DSpace\UserIntentions_CODE.xml
+
+echo 3DSwym
+echo 3DNotification
+echo 3DComment
+
+
+:FP
+
+</code></pre>
+<h2>install data</h2>
+<p>//dsplm24x.jxjty.com:1521/enoviav6</p>
+<table>
+<thead>
+<tr>
+<th>name</th>
+<th>password</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>admin_platform@jxjty.com</td>
+<td>Qwer1234</td>
+</tr>
+</tbody>
+</table>
+<p>https://dsplm24x.jxjty.com:443/3dpassport</p>
+<p>https://dsplm24x.jxjty.com:443/3dspace</p>
+<h2>3dpassport</h2>
+<pre><code class="language-sql">
+CREATE SMALLFILE TABLESPACE &quot;x3dpassadmin&quot; LOGGING DATAFILE 'passdb.dbf'
+SIZE 10M AUTOEXTEND
+ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+create user x3dpassadmin identified by x3dpassadmin;
+grant CREATE SEQUENCE to x3dpassadmin;
+grant CREATE SESSION to x3dpassadmin;
+grant CREATE SYNONYM to x3dpassadmin;
+grant CREATE TABLE to x3dpassadmin;
+ALTER USER x3dpassadmin default tablespace &quot;x3dpassadmin&quot;;
+ALTER USER x3dpassadmin QUOTA UNLIMITED ON &quot;x3dpassadmin&quot;;
+
+CREATE SMALLFILE TABLESPACE &quot;x3dpasstokens&quot; LOGGING DATAFILE 'passtkdb.dbf'
+SIZE 10M AUTOEXTEND
+ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+create user x3dpasstokens identified by x3dpasstokens;
+grant CREATE SEQUENCE to x3dpasstokens;
+grant CREATE SESSION to x3dpasstokens;
+grant CREATE SYNONYM to x3dpasstokens;
+grant CREATE TABLE to x3dpasstokens;
+ALTER USER x3dpasstokens default tablespace &quot;x3dpasstokens&quot;;
+ALTER USER x3dpasstokens QUOTA UNLIMITED ON &quot;x3dpasstokens&quot;;
+
+</code></pre>
+<pre><code class="language-batch">
+copy D:\DassaultSystemes\R2024x\3DPassport\win_b64\templates\*.conf C:\Apache24\conf
+
+</code></pre>
+<h2>3ddashboard</h2>
+<pre><code class="language-sql">
+CREATE USER x3ddashadmin IDENTIFIED BY x3ddashadmin;
+GRANT CREATE SESSION TO x3ddashadmin;
+GRANT RESOURCE TO x3ddashadmin;
+CREATE SMALLFILE TABLESPACE x3ddashadmin LOGGING DATAFILE 'x3ddashadmin.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+ALTER USER x3ddashadmin default tablespace x3ddashadmin;
+ALTER USER x3ddashadmin QUOTA UNLIMITED ON x3ddashadmin;
+GRANT UNLIMITED TABLESPACE TO x3ddashadmin;
+
+
+</code></pre>
+<pre><code class="language-batch">copy D:\DassaultSystemes\R2024x\3DDashboard\win_b64\templates\*.conf C:\Apache24\conf
+
+</code></pre>
+<h2>3dSearch</h2>
+<pre><code class="language-batch">copy D:\DassaultSystemes\R2024x\FedSearch\win_b64\templates\*.conf C:\Apache24\conf
+
+</code></pre>
+<h2>3dspace</h2>
+<p>Error : Can not load mxoci80.dll ?</p>
+<p><a href="./24_3dspace/msvcp120.dll">msvcp120.dll</a></p>
+<p><a href="./24_3dspace/msvcr120.dll">msvcr120.dll</a></p>
+<pre><code class="language-batch">copy msvcp120.dll D:\DS\V6R2024x\AM_3DEXP_Platform.AllOS\2\3DSpace\Windows64\1\inst\DBConnectionTest\win_b64\code\bin\
+
+copy msvcr120.dll D:\DS\V6R2024x\AM_3DEXP_Platform.AllOS\2\3DSpace\Windows64\1\inst\DBConnectionTest\win_b64\code\bin
+
+</code></pre>
+<pre><code class="language-sql">create user M1 identified by M1;
+grant connect, resource, create view to M1;
+CREATE SMALLFILE TABLESPACE &quot;M1&quot; LOGGING DATAFILE 'M1.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+ALTER USER M1 default tablespace M1;
+GRANT UNLIMITED TABLESPACE TO M1;
+
+CREATE SMALLFILE TABLESPACE &quot;I1_DATA&quot; LOGGING DATAFILE 'I1_DATA.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO;
+
+CREATE SMALLFILE TABLESPACE &quot;I1_INDEX&quot; LOGGING DATAFILE 'I1_INDEX.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+
+CREATE SMALLFILE TABLESPACE &quot;M1_DATA&quot; LOGGING DATAFILE 'M1_DATA.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+
+CREATE SMALLFILE TABLESPACE &quot;M1_INDEX&quot; LOGGING DATAFILE 'M1_INDEX.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+
+CREATE SMALLFILE TABLESPACE &quot;V1_DATA&quot; LOGGING DATAFILE 'V1_DATA.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+
+CREATE SMALLFILE TABLESPACE &quot;V1_INDEX&quot; LOGGING DATAFILE 'V1_INDEX.dbf' SIZE 10M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED EXTENT MANAGEMENT LOCAL SEGMENT SPACE MANAGEMENT AUTO ;
+
+
+</code></pre>
+<p>for cas</p>
+<pre><code class="language-batch">copy D:\DassaultSystemes\R2024x\3DSpace\win_b64\templates\*.conf C:\Apache24\conf
+
+copy D:\DassaultSystemes\R2024x\3DSpace\win_b64\templates\*CAS*.bat C:\tomee\3dspace_cas\bin\
+
+cd /d C:\tomee\3dspace_cas\bin\
+ren setenvCAS.bat setenv.bat
+
+copy  D:\DassaultSystemes\R2024x\3DSpace\distrib_CAS\*.war C:\tomee\3dspace_cas\webapps\
+</code></pre>
+<p>for nocas</p>
+<pre><code class="language-batch">
+copy D:\DassaultSystemes\R2024x\3DSpace\win_b64\templates\setenv.bat C:\tomee\3dspace_nocas\bin\
+
+copy  D:\DassaultSystemes\R2024x\3DSpace\distrib_NoCAS\*.war C:\tomee\3dspace_nocas\webapps\
+</code></pre>
+<h3>hotfix</h3>
+<p>A manual step is required after this hot fix installation.
+The following MQL command must be executed once all applications are installed (it may take several minutes).
+Start a MQL command window from &lt;server&gt; installation and type this:</p>
+<pre><code class="language-batch">MQL&gt;set context person creator;
+MQL&gt;exec prog VPLMDataMigration;
+</code></pre>
+<h2>start server</h2>
+<pre><code class="language-batch">
+@echo off
+goto 2
+:2
+set CATALINA_HOME=C:\TomEE\3dpassport
+call C:\TomEE\3dpassport\bin\startup.bat
+timeout /t 30
+
+set CATALINA_HOME=C:\TomEE\3ddashboard
+call C:\TomEE\3ddashboard\bin\startup.bat
+timeout /t 70
+
+goto 1
+
+set CATALINA_HOME=C:\TomEE\3dsearch
+call C:\TomEE\3dsearch\bin\startup.bat
+timeout /t 40
+
+set CATALINA_HOME=C:\TomEE\3dspaceCAS
+call C:\TomEE\3dspaceCAS\bin\startup.bat
+timeout /t 160
+
+set CATALINA_HOME=C:\TomEE\3dspaceNoCAS
+call C:\TomEE\3dspaceNoCAS\bin\startup.bat
+timeout /t 40
+
+set CATALINA_HOME=C:\TomEE\CentralFCS
+call C:\TomEE\CentralFCS\bin\startup.bat
+timeout /t 40
+
+set CATALINA_HOME=C:\TomEE\3dcomment
+call C:\TomEE\3dcomment\bin\startup.bat
+timeout /t 20
+
+set CATALINA_HOME=C:\TomEE\3dsywm
+call C:\TomEE\3dsywm\bin\startup.bat
+
+:1
+
+
+</code></pre>
+<h2>stop server</h2>
+<pre><code class="language-batch">@echo off
+cd /d C:\TomEE
+set CATALINA_HOME=C:\TomEE\3dpassport
+call C:\TomEE\3dpassport\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3ddashboard
+call C:\TomEE\3ddashboard\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3dsearch
+call C:\TomEE\3dsearch\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3dspaceCAS
+call C:\TomEE\3dspaceCAS\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3dspaceNoCAS
+call C:\TomEE\3dspaceNoCAS\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\CentralFCS
+call C:\TomEE\CentralFCS\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3dcomment
+call C:\TomEE\3dcomment\bin\shutdown.bat
+sleep 2
+
+set CATALINA_HOME=C:\TomEE\3dsywm
+call C:\TomEE\3dsywm\bin\shutdown.bat
+
+
+</code></pre>
+<h2>user intentions</h2>
+<pre><code class="language-xml">&lt;SetVariableProtected name=&quot;PASS_ORACLE_SQLPasswordAdmin&quot; value=&quot;x3dpassadmin&quot;/&gt;
+</code></pre>
+<p>遇到以上需要写密码的，删除 Protected ，在后面值里面写上密码</p>
+<h3>3dpassport_ga</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\X3D_PASS.media&quot; mediaVersion=&quot;426&quot;&gt;
+  &lt;SetVariable name=&quot;Java@jdk&quot; value=&quot;C:\jdk-17.0.10+7&quot;/&gt;
+  &lt;SetVariable name=&quot;installEmbeddedServerJRE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;install_Embedded_TomEE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;TomEEPath&quot; value=&quot;C:\tomee\3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_OraclePassTnsNames&quot; value=&quot;&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLURL_HOST_AND_PORT&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLURLCas_HOST_AND_PORT&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLUserAdmin&quot; value=&quot;x3dpassadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLPasswordAdmin&quot; value=&quot;x3dpassadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLUserCas&quot; value=&quot;x3dpasstokens&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLPasswordCas&quot; value=&quot;x3dpasstokens&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_DatabaseConnectionCheck&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DPassportURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DCompassURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_HOST&quot; value=&quot;localhost&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_MAIL_SENDER&quot; value=&quot;admin_platform@service.mydomain&quot;/&gt;
+  &lt;SetVariable name=&quot;ForceLowerCase&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable item=&quot;oracle&quot; name=&quot;DatabaseType&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;AdminPlatformEmail&quot; value=&quot;admin_platform@jxjty.com&quot;/&gt;
+  &lt;SetVariable name=&quot;AdminPlatformPassword&quot; value=&quot;Qwer1234&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;TARGET_PATH&quot; value=&quot;D:\DassaultSystemes\R2024x\3DPassport&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+</code></pre>
+<h3>3dpassport_fd01</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\X3D_PASS.media&quot; mediaVersion=&quot;426.1&quot;&gt;
+  &lt;SetVariable name=&quot;Java@jdk&quot; value=&quot;C:\jdk-17.0.10+7&quot;/&gt;
+  &lt;SetVariable name=&quot;installEmbeddedServerJRE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;TomEEPath&quot; value=&quot;C:\tomee\3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_OraclePassTnsNames&quot; value=&quot;&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLURL_HOST_AND_PORT&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLURLCas_HOST_AND_PORT&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLUserAdmin&quot; value=&quot;x3dpassadmin&quot;/&gt;
+  &lt;SetVariableProtected name=&quot;PASS_ORACLE_SQLPasswordAdmin&quot; value=&quot;x3dpassadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_SQLUserCas&quot; value=&quot;x3dpasstokens&quot;/&gt;
+  &lt;SetVariableProtected name=&quot;PASS_ORACLE_SQLPasswordCas&quot; value=&quot;x3dpasstokens&quot;/&gt;
+  &lt;SetVariable name=&quot;PASS_ORACLE_DatabaseConnectionCheck&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DPassportURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DCompassURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_HOST&quot; value=&quot;localhost&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_MAIL_SENDER&quot; value=&quot;admin_platform@service.mydomain&quot;/&gt;
+  &lt;SetVariable name=&quot;ForceLowerCase&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable item=&quot;oracle&quot; name=&quot;DatabaseType&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;AdminPlatformEmail&quot; value=&quot;admin_platform@jxjty.com&quot;/&gt;
+  &lt;SetVariableProtected name=&quot;AdminPlatformPassword&quot; value=&quot;Put your password here.&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+</code></pre>
+<h3>3ddashboard_ga</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\X3D_DASH.media&quot; mediaVersion=&quot;426&quot;&gt;
+  &lt;SetVariable name=&quot;Java@jdk&quot; value=&quot;C:\jdk-17.0.10+7&quot;/&gt;
+  &lt;SetVariable name=&quot;installEmbeddedServerJRE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_tnsnames_dir&quot; value=&quot;&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_full_service&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_user&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_password&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DPassportURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DDashboardURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3ddashboard&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DCompassURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_6WTAGURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_HOST&quot; value=&quot;localhost&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_MAIL_SENDER&quot; value=&quot;admin_platform@service.mydomain&quot;/&gt;
+  &lt;SetVariable name=&quot;install_Embedded_TomEE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;TomEEPath&quot; value=&quot;C:\tomee\3ddashboard&quot;/&gt;
+  &lt;SetVariable item=&quot;oracle&quot; name=&quot;dsi_database_type&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_domain_untrusted&quot; value=&quot;untrusted.dsplm24x.jxjty.com&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_uwaProxy_domainWhiteList&quot; value=&quot;.*&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_shared_dir&quot; value=&quot;D:\DassaultSystemes\3DDashboardData&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;TARGET_PATH&quot; value=&quot;D:\DassaultSystemes\R2024x\3DDashboard&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+</code></pre>
+<h3>3ddashboard_fd01</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\X3D_DASH.media&quot; mediaVersion=&quot;426.1&quot;&gt;
+  &lt;SetVariable name=&quot;Java@jdk&quot; value=&quot;C:\jdk-17.0.10+7&quot;/&gt;
+  &lt;SetVariable name=&quot;installEmbeddedServerJRE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_tnsnames_dir&quot; value=&quot;&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_full_service&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_user&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_password&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DPassportURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DDashboardURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3ddashboard&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DCompassURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_6WTAGURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_HOST&quot; value=&quot;localhost&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_MAIL_SENDER&quot; value=&quot;admin_platform@service.mydomain&quot;/&gt;
+  &lt;SetVariable name=&quot;TomEEPath&quot; value=&quot;C:\tomee\3ddashboard&quot;/&gt;
+  &lt;SetVariable item=&quot;oracle&quot; name=&quot;dsi_database_type&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_domain_untrusted&quot; value=&quot;untrusted.dsplm24x.jxjty.com&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_uwaProxy_domainWhiteList&quot; value=&quot;.*&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_shared_dir&quot; value=&quot;D:\DassaultSystemes\3DDashboardData&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+
+</code></pre>
+<h3>3ddashboard_fd02</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\X3D_DASH.media&quot; mediaVersion=&quot;426.2&quot;&gt;
+  &lt;SetVariable name=&quot;Java@jdk&quot; value=&quot;C:\jdk-17.0.10+7&quot;/&gt;
+  &lt;SetVariable name=&quot;installEmbeddedServerJRE&quot; value=&quot;false&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_tnsnames_dir&quot; value=&quot;&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_full_service&quot; value=&quot;//dsplm24x.jxjty.com:1521/enoviav6&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_user&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;uwp_oracle_database_password&quot; value=&quot;x3ddashadmin&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DPassportURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dpassport&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DDashboardURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3ddashboard&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_3DCompassURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_6WTAGURL&quot; value=&quot;https://dsplm24x.jxjty.com:443/3dspace&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_HOST&quot; value=&quot;localhost&quot;/&gt;
+  &lt;SetVariable name=&quot;X3DCSMA_SMTP_MAIL_SENDER&quot; value=&quot;admin_platform@service.mydomain&quot;/&gt;
+  &lt;SetVariable name=&quot;TomEEPath&quot; value=&quot;C:\tomee\3ddashboard&quot;/&gt;
+  &lt;SetVariable item=&quot;oracle&quot; name=&quot;dsi_database_type&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_domain_untrusted&quot; value=&quot;untrusted.dsplm24x.jxjty.com&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_uwaProxy_domainWhiteList&quot; value=&quot;.*&quot;/&gt;
+  &lt;SetVariable name=&quot;dsi_shared_dir&quot; value=&quot;D:\DassaultSystemes\3DDashboardData&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+
+</code></pre>
+<h3>3dspaceindex</h3>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;UserIntentions mediaName=&quot;CODE\win_b64\ENOVIA_SXI.media&quot; mediaVersion=&quot;426&quot;&gt;
+  &lt;SetVariable name=&quot;FullCloud_URL&quot; value=&quot;http://dsplm24x.jxjty.com:19000&quot;/&gt;
+  &lt;SetVariable name=&quot;FullCloud_NumSlices&quot; value=&quot;1&quot;/&gt;
+  &lt;SetVariable name=&quot;FullCloud_NumAnalyzers&quot; value=&quot;8&quot;/&gt;
+  &lt;SetVariable name=&quot;FullCloud_AdminPassword&quot; value=&quot;Qwer1234&quot;/&gt;
+  &lt;SetVariable item=&quot;NonHACloudview&quot; name=&quot;Radio_InstallMODE&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;PATH_CVDATADIR_CUSTO&quot; value=&quot;D:\DassaultSystemes\R2024x\3DSpaceIndex\win_b64\cv\data&quot;/&gt;
+  &lt;SetVariable item=&quot;Custom&quot; name=&quot;Radio_mode&quot; value=&quot;true&quot;/&gt;
+  &lt;SetVariable name=&quot;DSYWelcomePanel&quot;/&gt;
+  &lt;SetVariable name=&quot;TARGET_PATH&quot; value=&quot;D:\DassaultSystemes\R2024x\3DSpaceIndex&quot;/&gt;
+  &lt;SetVariable name=&quot;FinishPanel&quot;/&gt;
+&lt;/UserIntentions&gt;
+</code></pre>
