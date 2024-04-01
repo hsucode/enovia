@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="server.html"><strong aria-hidden="true">1.</strong> server deploy</a></li><li class="chapter-item expanded "><a href="win.html"><strong aria-hidden="true">2.</strong> R2024x-win</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="server.html"><strong aria-hidden="true">1.</strong> server deploy</a></li><li class="chapter-item expanded "><a href="win.html"><strong aria-hidden="true">2.</strong> R2024x-win</a></li><li class="chapter-item expanded "><a href="linux.html"><strong aria-hidden="true">3.</strong> R2024x-win</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -660,6 +660,22 @@ Get-ChildItem -Path $folderPath -Recurse -Directory | ForEach-Object {
         Remove-Item -Path $_.FullName -Recurse -Force
     }
 }
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="3dexperience-r2024x-redhat-server-installation"><a class="header" href="#3dexperience-r2024x-redhat-server-installation">3DEXPERIENCE R2024x redhat server installation</a></h1>
+<h2 id="website-1"><a class="header" href="#website-1">website</a></h2>
+<pre><code class="language-batch">start https://dsplm24x.jxjty.com/3dpassport
+start https://dsplm24x.jxjty.com/3ddashboard
+start http://dsplm24x.jxjty.com:19001
+start https://dsplm24x.jxjty.com/3dswym
+start https://dsplm24x.jxjty.com/3dspace
+start https://dsplm24x.jxjty.com/federated/search?query=test
+
+</code></pre>
+<h2 id="host-1"><a class="header" href="#host-1">host</a></h2>
+<pre><code class="language-batch">
+echo 127.0.0.1 dsplm24x.jxjty.com&gt;&gt; C:\Windows\System32\drivers\etc\hosts
+echo 127.0.0.1 untrusted.dsplm24x.jxjty.com&gt;&gt; C:\Windows\System32\drivers\etc\hosts
+
 </code></pre>
 
                     </main>
